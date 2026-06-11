@@ -96,6 +96,15 @@ function updateDevMode() {
   devModeElements.forEach((element) => {
     element.classList.toggle("dev-mode", !enabled);
   });
+  elements.grid.setAttribute("aria-readonly", String(!enabled));
+  elements.grid.style.cursor = enabled ? "crosshair" : "default";
+  state.previewChanges = [];
+  state.previewRejected = false;
+  refreshGrid();
+}
+
+function canEditQr() {
+  return elements.devModeToggle.checked && !state.generationController;
 }
 
 function installModel(model, edited = model.matrix) {
@@ -136,6 +145,9 @@ async function generateTextQr() {
   let searchedSize = null;
   canvasGrid.showSearchShell(state.model);
   elements.grid.classList.add("is-busy", "is-searching");
+
+  elements.grid.scrollIntoView({ behavior: "smooth" });
+
   try {
     const result = await findOptimalTextQr({
       message: elements.textQrMessage.value,
@@ -215,7 +227,9 @@ function handleGenerateTextQr() {
 }
 
 function isEditable(row, column) {
-  return state.model.metadata[row][column].kind !== "function";
+  return (
+    canEditQr() && state.model.metadata[row][column].kind !== "function"
+  );
 }
 
 function targetValue(row, column) {
@@ -279,6 +293,7 @@ function previewSingle(row, column) {
 }
 
 function beginStroke(row, column) {
+  if (!canEditQr()) return;
   if (elements.showOriginal.checked) return;
   if (!isEditable(row, column)) {
     setStrokePreview(assessChanges([]), []);
@@ -516,6 +531,10 @@ function renderBlockVisibility() {
 }
 
 function handleGridPointer(event) {
+  if (!canEditQr()) {
+    elements.grid.style.cursor = "default";
+    return;
+  }
   const module = canvasGrid.moduleFromPointer(event);
   if (!module) return;
   const { row, column } = module;
@@ -543,6 +562,7 @@ function setTool(tool) {
 }
 
 function undo() {
+  if (!canEditQr()) return;
   if (!state.history.length) return;
   state.future.push(cloneMatrix(state.edited));
   state.edited = state.history.pop();
@@ -551,6 +571,7 @@ function undo() {
 }
 
 function redo() {
+  if (!canEditQr()) return;
   if (!state.future.length) return;
   state.history.push(cloneMatrix(state.edited));
   state.edited = state.future.pop();
@@ -603,7 +624,7 @@ document.querySelectorAll(".color-button").forEach((button) => {
 });
 
 elements.grid.addEventListener("pointerdown", (event) => {
-  if (state.generationController) return;
+  if (!canEditQr()) return;
   const module = canvasGrid.moduleFromPointer(event);
   if (!module) return;
   event.preventDefault();
@@ -620,7 +641,7 @@ elements.grid.addEventListener("pointermove", handleGridPointer);
 elements.grid.addEventListener("pointerleave", () => {
   if (state.dragging) return;
   state.hoveredModule = null;
-  elements.grid.style.cursor = "crosshair";
+  elements.grid.style.cursor = canEditQr() ? "crosshair" : "default";
   state.previewChanges = [];
   state.previewRejected = false;
   refreshGrid();
@@ -637,7 +658,7 @@ elements.generateTextQr.addEventListener("click", handleGenerateTextQr);
 elements.undo.addEventListener("click", undo);
 elements.redo.addEventListener("click", redo);
 elements.reset.addEventListener("click", () => {
-  if (!state.model) return;
+  if (!state.model || !canEditQr()) return;
   if (state.damage.changedModules.length) {
     state.history.push(cloneMatrix(state.edited));
     state.future = [];
@@ -678,6 +699,7 @@ document.addEventListener("keydown", (event) => {
 
   const key = event.key.toLowerCase();
   const commandKey = event.ctrlKey || event.metaKey;
+  if (!canEditQr() && !(commandKey && key === "s")) return;
   if (commandKey && key === "z" && !event.shiftKey) {
     event.preventDefault();
     undo();
