@@ -1,4 +1,5 @@
 import { downloadQrPng } from "./png-export.js";
+import { downloadQrSvg } from "./svg-export.js";
 import {
   analyzeDamage,
   applyChanges,
@@ -56,7 +57,7 @@ const elements = {
   remainderNote: document.querySelector("#remainder-note"),
   undo: document.querySelector("#undo"),
   redo: document.querySelector("#redo"),
-  reset: document.querySelector("#reset-edits"),
+  downloadSvg: document.querySelector("#download-svg"),
   download: document.querySelector("#download"),
 };
 
@@ -91,6 +92,25 @@ const canvasGrid = new CanvasGrid(
 
 const devModeElements = [...document.querySelectorAll(".dev-mode")];
 
+function readUrlState() {
+  const params = new URLSearchParams(window.location.search);
+  return {
+    content: params.has("c") ? params.get("c") : null,
+    devMode: params.has("dev"),
+  };
+}
+
+function writeUrlState(content) {
+  const query = `?c=${encodeURIComponent(content)}${
+    elements.devModeToggle.checked ? "&dev" : ""
+  }`;
+  window.history.replaceState(
+    null,
+    "",
+    `${window.location.pathname}${query}${window.location.hash}`,
+  );
+}
+
 function updateDevMode() {
   const enabled = elements.devModeToggle.checked;
   devModeElements.forEach((element) => {
@@ -121,7 +141,7 @@ function installModel(model, edited = model.matrix) {
   updateAll();
 }
 
-function makeExportFilename(model) {
+function makeExportFilename(model, extension) {
   const value = model.message
     .normalize("NFKD")
     .replace(/[\u0300-\u036f]/g, "")
@@ -131,7 +151,7 @@ function makeExportFilename(model) {
     .replace(/^_+|_+$/g, "")
     .slice(0, 80);
   const suffix = value || "data";
-  return `hqr_v${model.version}${model.level}_${suffix}.png`;
+  return `hqr_v${model.version}${model.level}_${suffix}.${extension}`;
 }
 
 async function generateTextQr() {
@@ -188,6 +208,7 @@ async function generateTextQr() {
       .join(", ");
     elements.textQrStatus.className = "generation-status is-success";
     elements.textQrStatus.textContent = `Finished: version ${result.model.version}, mask ${result.model.mask}, ${result.placement.rectangleCount} text rectangle(s), ${result.placement.lineCount} line(s)`;
+    writeUrlState(result.model.message);
     elements.grid.scrollIntoView({ behavior: "smooth" });
   } catch (error) {
     const wasAborted = error.name === "AbortError";
@@ -588,27 +609,32 @@ function isTextEditingTarget(target) {
   );
 }
 
-function makeInitialModel() {
-  for (let version = 1; version <= 40; version += 1) {
-    try {
-      return generateBaseline({
-        version,
-        level: "H",
-        mask: 1,
-        message: elements.textQrMessage.value,
-        type: "byte",
-      });
-    } catch {
-      // Try the next version until the initial message fits.
-    }
-  }
-  return generateBaseline({
+function makeInitialHqr() {
+  const model = generateBaseline({
     version: 1,
     level: "H",
     mask: 1,
-    message: "",
+    message: "67",
     type: "byte",
+    paddingBytes: [163, 60, 96, 108, 65],
   });
+  const textPixels = [
+    "000000000",
+    "001101110",
+    "010000010",
+    "011100100",
+    "010101000",
+    "011101000",
+    "000000000",
+  ];
+  const changes = textPixels.flatMap((line, rowOffset) =>
+    [...line].map((value, columnOffset) => ({
+      row: 11 + rowOffset,
+      column: 11 + columnOffset,
+      value: value === "1",
+    })),
+  );
+  return { model, edited: applyChanges(model.matrix, changes) };
 }
 
 document.querySelectorAll(".tool-button").forEach((button) => {
@@ -653,22 +679,21 @@ elements.textQrBudget.addEventListener("input", () => {
 elements.textQrMaxVersion.addEventListener("input", () => {
   elements.textQrMaxVersionOutput.value = elements.textQrMaxVersion.value;
 });
-elements.devModeToggle.addEventListener("change", updateDevMode);
+elements.devModeToggle.addEventListener("change", () => {
+  updateDevMode();
+  const params = new URLSearchParams(window.location.search);
+  if (params.has("c")) {
+    writeUrlState(params.get("c"));
+  }
+});
 elements.generateTextQr.addEventListener("click", handleGenerateTextQr);
 elements.undo.addEventListener("click", undo);
 elements.redo.addEventListener("click", redo);
-elements.reset.addEventListener("click", () => {
-  if (!state.model || !canEditQr()) return;
-  if (state.damage.changedModules.length) {
-    state.history.push(cloneMatrix(state.edited));
-    state.future = [];
-  }
-  state.edited = cloneMatrix(state.model.matrix);
-  state.previewChanges = [];
-  updateAll();
+elements.downloadSvg.addEventListener("click", () => {
+  downloadQrSvg(state.edited, makeExportFilename(state.model, "svg"));
 });
 elements.download.addEventListener("click", () => {
-  downloadQrPng(state.edited, makeExportFilename(state.model));
+  downloadQrPng(state.edited, makeExportFilename(state.model, "png"));
 });
 for (const control of [
   elements.showHighlights,
@@ -724,6 +749,16 @@ document.addEventListener("keydown", (event) => {
   }
 });
 
+const urlState = readUrlState();
+if (urlState.content !== null) {
+  elements.textQrMessage.value = urlState.content;
+  elements.textQrMessage.defaultValue = urlState.content;
+}
+elements.devModeToggle.checked = urlState.devMode;
 updateDevMode();
 updateHighlightControls();
-installModel(makeInitialModel());
+const initialHqr = makeInitialHqr();
+installModel(initialHqr.model, initialHqr.edited);
+if (urlState.content !== null) {
+  void generateTextQr();
+}

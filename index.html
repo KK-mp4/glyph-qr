@@ -107,205 +107,210 @@
                 <div class="grid-legend dev-mode" id="grid-legend"></div>
             </section>
 
-            <aside class="panel">
-                <header class="panel-header">
-                    <h1>Human-readable QR Code Generator</h1>
-                    <p>
-                        Who says QR codes aren't human readable? Well, everyone!
-                        So let's change that by integrating text directly into
-                        QR codes, while still making them readable and without
-                        removing their magical Error-Correction abilities.
-                    </p>
-                    <label class="check-row dev-mode-toggle">
-                        <input type="checkbox" id="dev-mode-toggle" />
-                        <span>Enable developer mode</span>
-                    </label>
-                </header>
+            <div class="panel-container">
+                <aside class="panel">
+                    <header class="panel-header">
+                        <h1>Human-readable QR codes</h1>
+                        <p>
+                            Who says QR codes aren't human readable? Well,
+                            everyone! So let's change that by integrating text
+                            directly into QR codes, while still making them
+                            readable and without removing their magical
+                            Error-Correction abilities.
+                        </p>
+                    </header>
 
-                <section class="panel-section">
-                    <h2 class="dev-mode">Generate an HQR Code</h2>
-                    <p class="dev-mode">
-                        Enter a given message (e.g. a website url) and generate
-                        a QR code that contains the encoded message in a tiny
-                        bitmap font called
-                        <a
-                            href="https://robey.lag.net/2010/01/23/tiny-monospace-font.html"
-                            >Tom-Thumb</a
-                        >. Keep your message short; long texts will take long
-                        times to optimize.
-                        <span class="dev-mode">
-                            <br />Importantly, this doesn't just place the text
-                            and thus abuses error correction, but it actually
-                            modifies the padding data, masking and alignment to
-                            design a QR code that only uses minimal Error
-                            Correction to show the encoded text. For more fun
-                            details on the Maths behind this, see
-                            <a href="https://research.swtch.com/qart"
-                                >this great blogpost</a
+                    <section class="panel-section">
+                        <h2 class="dev-mode">Generate an HQR Code</h2>
+                        <p class="dev-mode">
+                            Enter a given message (e.g. a website url) and
+                            generate a QR code that contains the encoded message
+                            in a tiny bitmap font called
+                            <a
+                                href="https://robey.lag.net/2010/01/23/tiny-monospace-font.html"
+                                >Tom-Thumb</a
+                            >. Keep your message short; long texts will take
+                            long times to optimize.
+                            <span class="dev-mode">
+                                <br />Importantly, this doesn't just place the
+                                text and thus abuses error correction, but it
+                                actually modifies the padding data, masking and
+                                alignment to design a QR code that only uses
+                                minimal Error Correction to show the encoded
+                                text. For more fun details on the Maths behind
+                                this, see
+                                <a href="https://research.swtch.com/qart"
+                                    >this great blogpost</a
+                                >
+                                by Ross Cox.
+                            </span>
+                        </p>
+                        <label class="field">
+                            <span
+                                >Content (encoded value, only
+                                <a href="https://en.wikipedia.org/wiki/ASCII"
+                                    >ASCII</a
+                                >)</span
                             >
-                            by Ross Cox.
-                        </span>
-                    </p>
-                    <label class="field">
-                        <span
-                            >Content (encoded value, only
-                            <a href="https://en.wikipedia.org/wiki/ASCII"
-                                >ASCII</a
-                            >)</span
-                        >
-                        <textarea id="text-qr-message">67</textarea>
-                    </label>
-                    <label class="field dev-mode">
-                        <span>Maximum ECC budget used</span>
-                        <div class="range-field">
-                            <input
-                                type="range"
-                                id="text-qr-budget"
-                                min="10"
-                                max="100"
-                                step="5"
-                                value="80"
-                            />
-                            <output
-                                id="text-qr-budget-output"
-                                for="text-qr-budget"
-                                >80%</output
-                            >
-                        </div>
-                        <small
-                            >The generator will search for a QR code with the
-                            text that uses up this much of the available ECC
-                            capacity per Reed-Solomon block.</small
-                        >
-                    </label>
-                    <label class="field dev-mode">
-                        <span>Maximum searched version</span>
-                        <div class="range-field">
-                            <input
-                                type="range"
-                                id="text-qr-max-version"
-                                min="1"
-                                max="40"
-                                step="1"
-                                value="40"
-                            />
-                            <output
-                                id="text-qr-max-version-output"
-                                for="text-qr-max-version"
-                                >40</output
-                            >
-                        </div>
-                        <small
-                            >Set this to 10 to restrict generation to Versions
-                            1–10. The QR code version represent the
-                            sizes.</small
-                        >
-                    </label>
-                    <label class="check-row dev-mode">
-                        <input type="checkbox" id="text-qr-allow-split" />
-                        <span
-                            >Allow text to be split into separate
-                            rectangles</span
-                        >
-                    </label>
-                    <label class="check-row dev-mode">
-                        <input
-                            type="checkbox"
-                            id="text-qr-horizontal-only"
-                            checked
-                        />
-                        <span
-                            >Only use text boxes at least as wide as they are
-                            tall (it gets ugly otherwise)</span
-                        >
-                    </label>
-                    <button type="button" id="generate-text-qr">
-                        Generate HQR Code
-                    </button>
-                    <div
-                        class="generation-status"
-                        id="text-qr-status"
-                        aria-live="polite"
-                    >
-                        Ready to generate an optimal HQR code.
-                    </div>
-                </section>
-
-                <section class="panel-section dev-mode">
-                    <h2>Highlighting</h2>
-                    <label class="check-row">
-                        <input type="checkbox" id="show-highlights" />
-                        <span>Show highlighting</span>
-                    </label>
-                    <div class="highlight-options" id="highlight-options">
-                        <label class="check-row">
-                            <input type="checkbox" id="show-blocks" />
-                            <span>Color Reed–Solomon blocks</span>
+                            <textarea id="text-qr-message">67</textarea>
                         </label>
+                        <label class="field dev-mode">
+                            <span>Maximum ECC budget used</span>
+                            <div class="range-field">
+                                <input
+                                    type="range"
+                                    id="text-qr-budget"
+                                    min="10"
+                                    max="100"
+                                    step="5"
+                                    value="80"
+                                />
+                                <output
+                                    id="text-qr-budget-output"
+                                    for="text-qr-budget"
+                                    >80%</output
+                                >
+                            </div>
+                            <small
+                                >The generator will search for a QR code with
+                                the text that uses up this much of the available
+                                ECC capacity per Reed-Solomon block.</small
+                            >
+                        </label>
+                        <label class="field dev-mode">
+                            <span>Maximum searched version</span>
+                            <div class="range-field">
+                                <input
+                                    type="range"
+                                    id="text-qr-max-version"
+                                    min="1"
+                                    max="40"
+                                    step="1"
+                                    value="40"
+                                />
+                                <output
+                                    id="text-qr-max-version-output"
+                                    for="text-qr-max-version"
+                                    >40</output
+                                >
+                            </div>
+                            <small
+                                >Set this to 10 to restrict generation to
+                                Versions 1–10. The QR code version represent the
+                                sizes.</small
+                            >
+                        </label>
+                        <label class="check-row dev-mode">
+                            <input type="checkbox" id="text-qr-allow-split" />
+                            <span
+                                >Allow text to be split into separate
+                                rectangles</span
+                            >
+                        </label>
+                        <label class="check-row dev-mode">
+                            <input
+                                type="checkbox"
+                                id="text-qr-horizontal-only"
+                                checked
+                            />
+                            <span
+                                >Only use text boxes at least as wide as they
+                                are tall (it gets ugly otherwise)</span
+                            >
+                        </label>
+                        <button type="button" id="generate-text-qr">
+                            Generate HQR Code
+                        </button>
                         <div
-                            class="block-visibility"
-                            id="block-visibility"
-                        ></div>
+                            class="generation-status"
+                            id="text-qr-status"
+                            aria-live="polite"
+                        >
+                            Ready to generate an optimal HQR code.
+                        </div>
+                    </section>
+
+                    <section class="panel-section dev-mode">
+                        <h2>Highlighting</h2>
                         <label class="check-row">
-                            <input type="checkbox" id="show-kinds" />
-                            <span>Distinguish data and ECC</span>
+                            <input type="checkbox" id="show-highlights" />
+                            <span>Show highlighting</span>
                         </label>
+                        <div class="highlight-options" id="highlight-options">
+                            <label class="check-row">
+                                <input type="checkbox" id="show-blocks" />
+                                <span>Color Reed–Solomon blocks</span>
+                            </label>
+                            <div
+                                class="block-visibility"
+                                id="block-visibility"
+                            ></div>
+                            <label class="check-row">
+                                <input type="checkbox" id="show-kinds" />
+                                <span>Distinguish data and ECC</span>
+                            </label>
+                            <label class="check-row">
+                                <input type="checkbox" id="show-changes" />
+                                <span>Mark changed modules</span>
+                            </label>
+                        </div>
                         <label class="check-row">
-                            <input type="checkbox" id="show-changes" />
-                            <span>Mark changed modules</span>
+                            <input type="checkbox" id="show-original" />
+                            <span>Show original QR values</span>
                         </label>
-                    </div>
-                    <label class="check-row">
-                        <input type="checkbox" id="show-original" />
-                        <span>Show original QR values</span>
-                    </label>
-                </section>
+                    </section>
 
-                <section class="panel-section dev-mode">
-                    <h2>Editing the QR Code</h2>
-                    <p>
-                        Edit the QR code by choosing a drawing-method like the
-                        Pencil or Rectangle and a color. Set a Stroke limit to
-                        automatically prevent you from destroying the QR code
-                        too much (making it unreadable, even abusing the Error
-                        Correction).
-                    </p>
-                    <label class="field">
-                        <span>Stroke limit</span>
-                        <select id="budget-mode">
-                            <option value="conservative">
-                                Conservative · 50% of theoretical
-                            </option>
-                            <option value="theoretical" selected>
-                                Theoretical maximum
-                            </option>
-                            <option value="warn">Warn only</option>
-                        </select>
-                    </label>
-                </section>
+                    <section class="panel-section dev-mode">
+                        <h2>Editing the QR Code</h2>
+                        <p>
+                            Edit the QR code by choosing a drawing-method like
+                            the Pencil or Rectangle and a color. Set a Stroke
+                            limit to automatically prevent you from destroying
+                            the QR code too much (making it unreadable, even
+                            abusing the Error Correction).
+                        </p>
+                        <label class="field">
+                            <span>Stroke limit</span>
+                            <select id="budget-mode">
+                                <option value="conservative">
+                                    Conservative · 50% of theoretical
+                                </option>
+                                <option value="theoretical" selected>
+                                    Theoretical maximum
+                                </option>
+                                <option value="warn">Warn only</option>
+                            </select>
+                        </label>
+                    </section>
 
-                <section class="panel-section dev-mode">
-                    <div class="section-heading-row">
-                        <h2>Block damage</h2>
-                        <strong id="overall-status">Safe</strong>
-                    </div>
-                    <div class="block-list" id="block-list"></div>
-                    <p class="remainder-note" id="remainder-note"></p>
-                </section>
+                    <section class="panel-section dev-mode">
+                        <div class="section-heading-row">
+                            <h2>Block damage</h2>
+                            <strong id="overall-status">Safe</strong>
+                        </div>
+                        <div class="block-list" id="block-list"></div>
+                        <p class="remainder-note" id="remainder-note"></p>
+                    </section>
 
-                <section class="panel-section actions">
-                    <button type="button" id="reset-edits" class="dev-mode">
-                        Reset edits
-                    </button>
-                    <button
-                        type="button"
-                        id="download"
-                        title="Download PNG (Ctrl+S)"
-                    >
-                        Download PNG
-                    </button>
-                </section>
-            </aside>
+                    <section class="panel-section actions">
+                        <button type="button" id="download-svg">
+                            Download SVG
+                        </button>
+                        <button
+                            type="button"
+                            id="download"
+                            title="Download PNG (Ctrl+S)"
+                        >
+                            Download PNG
+                        </button>
+
+                        <label class="check-row dev-mode-toggle">
+                            <input type="checkbox" id="dev-mode-toggle" />
+                            <span>Enable developer mode</span>
+                        </label>
+                    </section>
+                </aside>
+            </div>
         </main>
 
         <script type="module" src="js/main.js?t=0"></script>
