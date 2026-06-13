@@ -332,6 +332,16 @@ h2 {
     width: 100%;
 }
 
+.hqr-navigation {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(135px, 1fr));
+    gap: 8px;
+}
+
+.hqr-navigation[hidden] {
+    display: none;
+}
+
 .section-copy {
     margin: 0 0 12px;
     color: var(--muted);

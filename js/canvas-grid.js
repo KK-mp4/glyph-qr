@@ -193,6 +193,59 @@ export class CanvasGrid {
     });
   }
 
+  async animateChanges(fromMatrix, toMatrix, { duration = 1000 } = {}) {
+    if (
+      fromMatrix.length !== toMatrix.length ||
+      fromMatrix.some((row, index) => row.length !== toMatrix[index].length)
+    ) {
+      await this.animateMatrix(toMatrix, { duration });
+      return;
+    }
+
+    this.searchAnimationToken += 1;
+    const size = toMatrix.length;
+    this.animationCanvas.width = size;
+    this.animationCanvas.height = size;
+    const image = this.makeAnimationImage(fromMatrix, true);
+    const changedModules = [];
+    for (let row = 0; row < size; row += 1) {
+      for (let column = 0; column < size; column += 1) {
+        if (fromMatrix[row][column] !== toMatrix[row][column]) {
+          changedModules.push(row * size + column);
+        }
+      }
+    }
+    this.shuffle(changedModules);
+    this.animationContext.putImageData(image, 0, 0);
+
+    const startedAt = performance.now();
+    let completed = 0;
+    await new Promise((resolve) => {
+      const drawFrame = (now) => {
+        const progress = Math.min(1, (now - startedAt) / duration);
+        const target = Math.floor(changedModules.length * progress);
+        while (completed < target) {
+          const moduleIndex = changedModules[completed];
+          const dataIndex = moduleIndex * 4;
+          const row = Math.floor(moduleIndex / size);
+          const column = moduleIndex % size;
+          const value = toMatrix[row][column] ? 0 : 255;
+          image.data[dataIndex] = value;
+          image.data[dataIndex + 1] = value;
+          image.data[dataIndex + 2] = value;
+          completed += 1;
+        }
+        this.animationContext.putImageData(image, 0, 0);
+        if (progress < 1) {
+          requestAnimationFrame(drawFrame);
+        } else {
+          resolve();
+        }
+      };
+      requestAnimationFrame(drawFrame);
+    });
+  }
+
   clearAnimation({ keepBlank = false } = {}) {
     this.searchAnimationToken += 1;
     this.root.classList.remove(

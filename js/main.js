@@ -43,6 +43,9 @@ const elements = {
   textQrAllowSplit: document.querySelector("#text-qr-allow-split"),
   textQrHorizontalOnly: document.querySelector("#text-qr-horizontal-only"),
   generateTextQr: document.querySelector("#generate-text-qr"),
+  hqrNavigation: document.querySelector("#hqr-navigation"),
+  previousHqr: document.querySelector("#previous-hqr"),
+  nextHqr: document.querySelector("#next-hqr"),
   textQrStatus: document.querySelector("#text-qr-status"),
   budgetMode: document.querySelector("#budget-mode"),
   showHighlights: document.querySelector("#show-highlights"),
@@ -80,6 +83,11 @@ const state = {
   hoveredModule: null,
   generationController: null,
   bestGenerationCandidate: null,
+  successfulSearchKey: null,
+  searchContinuation: null,
+  generatedResults: [],
+  generatedResultIndex: -1,
+  nextSearchExhausted: false,
 };
 
 const canvasGrid = new CanvasGrid(
@@ -127,6 +135,42 @@ function canEditQr() {
   return elements.devModeToggle.checked && !state.generationController;
 }
 
+function getGenerationSettings() {
+  return {
+    message: elements.textQrMessage.value,
+    budgetRatio: Number(elements.textQrBudget.value) / 100,
+    allowSplit: elements.textQrAllowSplit.checked,
+    horizontalOnly: elements.textQrHorizontalOnly.checked,
+    maxVersion: Number(elements.textQrMaxVersion.value),
+  };
+}
+
+function generationSettingsKey(settings = getGenerationSettings()) {
+  return JSON.stringify(settings);
+}
+
+function hasCurrentGenerationHistory() {
+  return (
+    state.successfulSearchKey === generationSettingsKey() &&
+    state.generatedResultIndex >= 0
+  );
+}
+
+function updateGenerationControls() {
+  if (state.generationController) return;
+  const hasHistory = hasCurrentGenerationHistory();
+  elements.generateTextQr.hidden = hasHistory;
+  elements.hqrNavigation.hidden = !hasHistory;
+  elements.generateTextQr.textContent = "Generate HQR Code";
+  elements.previousHqr.disabled =
+    !hasHistory || state.generatedResultIndex === 0;
+  elements.nextHqr.disabled =
+    !hasHistory ||
+    (state.generatedResultIndex === state.generatedResults.length - 1 &&
+      state.nextSearchExhausted);
+  elements.nextHqr.textContent = "Next HQR >";
+}
+
 function installModel(model, edited = model.matrix) {
   state.model = model;
   state.edited = cloneMatrix(edited);
@@ -154,7 +198,29 @@ function makeExportFilename(model, extension) {
   return `hqr_v${model.version}${model.level}_${suffix}.${extension}`;
 }
 
+async function displayGeneratedResult(result, { fullAnimation = false } = {}) {
+  const previousMatrix = cloneMatrix(state.edited);
+  const sameSize = previousMatrix.length === result.edited.length;
+  installModel(result.model, result.edited);
+  elements.textQrStatus.textContent = "Drawing the finished HQR code...";
+  elements.grid.classList.add("is-revealing");
+  if (fullAnimation || !sameSize) {
+    await canvasGrid.animateMatrix(result.edited, { duration: 1000 });
+  } else {
+    await canvasGrid.animateChanges(previousMatrix, result.edited, {
+      duration: 1000,
+    });
+  }
+  canvasGrid.clearAnimation();
+  elements.textQrStatus.className = "generation-status is-success";
+  elements.textQrStatus.textContent = `Finished: version ${result.model.version}, mask ${result.model.mask}, ${result.placement.rectangleCount} text rectangle(s), ${result.placement.lineCount} line(s)`;
+  writeUrlState(result.model.message);
+  elements.grid.scrollIntoView({ behavior: "smooth" });
+}
+
 async function generateTextQr() {
+  const settings = getGenerationSettings();
+  const searchKey = generationSettingsKey(settings);
   const controller = new AbortController();
   state.generationController = controller;
   state.bestGenerationCandidate = null;
@@ -170,11 +236,7 @@ async function generateTextQr() {
 
   try {
     const result = await findOptimalTextQr({
-      message: elements.textQrMessage.value,
-      budgetRatio: Number(elements.textQrBudget.value) / 100,
-      allowSplit: elements.textQrAllowSplit.checked,
-      horizontalOnly: elements.textQrHorizontalOnly.checked,
-      maxVersion: Number(elements.textQrMaxVersion.value),
+      ...settings,
       onProgress(message) {
         elements.textQrStatus.textContent = message;
       },
@@ -191,25 +253,18 @@ async function generateTextQr() {
       signal: controller.signal,
     });
 
-    installModel(result.model, result.edited);
     elements.generateTextQr.disabled = true;
     elements.generateTextQr.textContent = "Drawing HQR Code...";
-    elements.textQrStatus.textContent = "Drawing the finished HQR code...";
     elements.grid.classList.remove("is-searching");
-    elements.grid.classList.add("is-revealing");
-    await canvasGrid.animateMatrix(result.edited, { duration: 1000 });
-    canvasGrid.clearAnimation();
-
-    const damageText = result.damage.blockStats
-      .map(
-        (stat, index) =>
-          `B${index + 1} ${stat.totalDamaged}/${result.budgets[index]}`,
-      )
-      .join(", ");
-    elements.textQrStatus.className = "generation-status is-success";
-    elements.textQrStatus.textContent = `Finished: version ${result.model.version}, mask ${result.model.mask}, ${result.placement.rectangleCount} text rectangle(s), ${result.placement.lineCount} line(s)`;
-    writeUrlState(result.model.message);
-    elements.grid.scrollIntoView({ behavior: "smooth" });
+    await displayGeneratedResult(result, { fullAnimation: true });
+    state.successfulSearchKey = searchKey;
+    state.searchContinuation = {
+      pendingResults: [],
+      nextVersion: result.model.version + 1,
+    };
+    state.generatedResults = [result];
+    state.generatedResultIndex = 0;
+    state.nextSearchExhausted = result.model.version >= settings.maxVersion;
   } catch (error) {
     const wasAborted = error.name === "AbortError";
     if (wasAborted) {
@@ -233,7 +288,105 @@ async function generateTextQr() {
     }
     state.bestGenerationCandidate = null;
     elements.generateTextQr.disabled = false;
-    elements.generateTextQr.textContent = "Generate HQR Code";
+    updateGenerationControls();
+  }
+}
+
+async function showResultAt(index) {
+  if (
+    index < 0 ||
+    index >= state.generatedResults.length ||
+    state.generationController
+  ) {
+    return;
+  }
+  elements.previousHqr.disabled = true;
+  elements.nextHqr.disabled = true;
+  await displayGeneratedResult(state.generatedResults[index]);
+  state.generatedResultIndex = index;
+  updateGenerationControls();
+}
+
+async function showPreviousHqr() {
+  await showResultAt(state.generatedResultIndex - 1);
+}
+
+async function showNextHqr() {
+  if (state.generationController) {
+    state.generationController.abort();
+    elements.nextHqr.disabled = true;
+    elements.nextHqr.textContent = "Aborting...";
+    return;
+  }
+  if (state.generatedResultIndex < state.generatedResults.length - 1) {
+    await showResultAt(state.generatedResultIndex + 1);
+    return;
+  }
+  if (state.nextSearchExhausted || !hasCurrentGenerationHistory()) return;
+
+  const settings = getGenerationSettings();
+  const controller = new AbortController();
+  state.generationController = controller;
+  state.bestGenerationCandidate = null;
+  elements.previousHqr.disabled = true;
+  elements.nextHqr.disabled = false;
+  elements.nextHqr.textContent = "Abort computation";
+  elements.textQrStatus.className = "generation-status is-working";
+  let searchedSize = null;
+  canvasGrid.showSearchShell(state.model);
+  elements.grid.classList.add("is-busy", "is-searching");
+
+  try {
+    const startVersion = state.model.version + 1;
+    elements.textQrStatus.textContent =
+      `Continuing search at Version ${startVersion}...`;
+    const result = await findOptimalTextQr({
+      ...settings,
+      startVersion,
+      onProgress(message) {
+        elements.textQrStatus.textContent = message;
+      },
+      onSearchModel(model) {
+        if (controller.signal.aborted) return;
+        const size = model.matrix.length;
+        if (searchedSize === size) return;
+        canvasGrid.showSearchShell(model);
+        searchedSize = size;
+      },
+      onBestCandidate(candidate) {
+        state.bestGenerationCandidate = candidate;
+      },
+      signal: controller.signal,
+    });
+    state.searchContinuation = {
+      pendingResults: [],
+      nextVersion: result.model.version + 1,
+    };
+
+    state.generatedResults.push(result);
+    elements.grid.classList.remove("is-searching");
+    await displayGeneratedResult(result);
+    state.generatedResultIndex = state.generatedResults.length - 1;
+    state.nextSearchExhausted = result.model.version >= settings.maxVersion;
+  } catch (error) {
+    if (error.name === "AbortError") {
+      elements.textQrStatus.className = "generation-status";
+      elements.textQrStatus.textContent = "Generation aborted.";
+    } else if (error.message.startsWith("No other arrangement")) {
+      state.nextSearchExhausted = true;
+      elements.textQrStatus.className = "generation-status";
+      elements.textQrStatus.textContent = "No next HQR layout was found.";
+    } else {
+      elements.textQrStatus.className = "generation-status is-error";
+      elements.textQrStatus.textContent = error.message;
+    }
+    canvasGrid.clearAnimation();
+  } finally {
+    if (state.generationController === controller) {
+      state.generationController = null;
+    }
+    state.bestGenerationCandidate = null;
+    updateGenerationControls();
   }
 }
 
@@ -675,10 +828,18 @@ elements.grid.addEventListener("pointerleave", () => {
 
 elements.textQrBudget.addEventListener("input", () => {
   elements.textQrBudgetOutput.value = `${elements.textQrBudget.value}%`;
+  updateGenerationControls();
 });
 elements.textQrMaxVersion.addEventListener("input", () => {
   elements.textQrMaxVersionOutput.value = elements.textQrMaxVersion.value;
+  updateGenerationControls();
 });
+elements.textQrMessage.addEventListener("input", updateGenerationControls);
+elements.textQrAllowSplit.addEventListener("change", updateGenerationControls);
+elements.textQrHorizontalOnly.addEventListener(
+  "change",
+  updateGenerationControls,
+);
 elements.devModeToggle.addEventListener("change", () => {
   updateDevMode();
   const params = new URLSearchParams(window.location.search);
@@ -687,6 +848,8 @@ elements.devModeToggle.addEventListener("change", () => {
   }
 });
 elements.generateTextQr.addEventListener("click", handleGenerateTextQr);
+elements.previousHqr.addEventListener("click", showPreviousHqr);
+elements.nextHqr.addEventListener("click", showNextHqr);
 elements.undo.addEventListener("click", undo);
 elements.redo.addEventListener("click", redo);
 elements.downloadSvg.addEventListener("click", () => {
@@ -759,6 +922,7 @@ updateDevMode();
 updateHighlightControls();
 const initialHqr = makeInitialHqr();
 installModel(initialHqr.model, initialHqr.edited);
+updateGenerationControls();
 if (urlState.content !== null) {
   void generateTextQr();
 }

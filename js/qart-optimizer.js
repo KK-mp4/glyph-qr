@@ -413,6 +413,12 @@ function compareResults(a, b) {
   );
 }
 
+export function hqrLayoutKey(result) {
+  return result.edited
+    .map((row) => row.map((value) => Number(value)).join(""))
+    .join("");
+}
+
 function nextFrame() {
   return new Promise((resolve) => setTimeout(resolve, 0));
 }
@@ -428,11 +434,13 @@ export async function findOptimalTextQr({
   budgetRatio = 0.8,
   allowSplit = false,
   horizontalOnly = false,
+  startVersion = 1,
   maxVersion = 40,
   maskPatterns = [0, 1, 2, 3, 4, 5, 6, 7],
   onProgress = () => {},
   onSearchModel = () => {},
   onBestCandidate = () => {},
+  excludedLayoutKeys = [],
   signal,
 }) {
   throwIfAborted(signal);
@@ -444,6 +452,13 @@ export async function findOptimalTextQr({
   if (!Number.isInteger(maxVersion) || maxVersion < 1 || maxVersion > 40) {
     throw new Error("Maximum QR version must be an integer from 1 to 40.");
   }
+  if (
+    !Number.isInteger(startVersion) ||
+    startVersion < 1 ||
+    startVersion > maxVersion + 1
+  ) {
+    throw new Error("Starting QR version is outside the search range.");
+  }
   validateTomThumbText(displayText);
   if (
     !Array.isArray(maskPatterns) ||
@@ -452,9 +467,10 @@ export async function findOptimalTextQr({
   ) {
     throw new Error("Mask search must contain patterns 0 through 7.");
   }
+  const excludedLayouts = new Set(excludedLayoutKeys);
 
   let bestRejected = null;
-  for (let version = 1; version <= maxVersion; version += 1) {
+  for (let version = startVersion; version <= maxVersion; version += 1) {
     throwIfAborted(signal);
     const accepted = [];
     let versionFits = false;
@@ -498,8 +514,16 @@ export async function findOptimalTextQr({
         const batchResults = [];
         const recordResult = (result) => {
           batchResults.push(result);
-          if (result.accepted) accepted.push(result);
-          if (!bestRejected || compareResults(result, bestRejected) < 0) {
+          if (
+            result.accepted &&
+            !excludedLayouts.has(hqrLayoutKey(result))
+          ) {
+            accepted.push(result);
+          }
+          if (
+            !excludedLayouts.has(hqrLayoutKey(result)) &&
+            (!bestRejected || compareResults(result, bestRejected) < 0)
+          ) {
             bestRejected = result;
             onBestCandidate(result);
           }
@@ -545,7 +569,22 @@ export async function findOptimalTextQr({
 
     if (accepted.length) {
       accepted.sort(compareResults);
-      return accepted[0];
+      const uniqueResults = [];
+      const seenLayouts = new Set();
+      for (const result of accepted) {
+        const key = hqrLayoutKey(result);
+        if (seenLayouts.has(key)) continue;
+        seenLayouts.add(key);
+        uniqueResults.push(result);
+      }
+      const [result, ...pendingResults] = uniqueResults;
+      return {
+        ...result,
+        continuation: {
+          pendingResults,
+          nextVersion: version + 1,
+        },
+      };
     }
     if (!versionFits) continue;
   }
@@ -553,8 +592,11 @@ export async function findOptimalTextQr({
   const detail = bestRejected
     ? ` Best attempt was Version ${bestRejected.model.version} with ${bestRejected.totalDamaged} damaged codewords.`
     : "";
+  const subject = excludedLayouts.size || startVersion > 1
+    ? "No other arrangement"
+    : `No Version ${startVersion}-${maxVersion} arrangement`;
   throw new Error(
-    `No Version 1-${maxVersion} arrangement stays within the selected ECC budget.${detail}`,
+    `${subject} stays within the selected ECC budget.${detail}`,
   );
 }
 

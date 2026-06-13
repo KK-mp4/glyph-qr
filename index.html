@@ -222,6 +222,18 @@
                             Generate HQR Code
                         </button>
                         <div
+                            class="hqr-navigation"
+                            id="hqr-navigation"
+                            hidden
+                        >
+                            <button type="button" id="previous-hqr" disabled>
+                                &lt; Previous HQR
+                            </button>
+                            <button type="button" id="next-hqr">
+                                Next HQR &gt;
+                            </button>
+                        </div>
+                        <div
                             class="generation-status"
                             id="text-qr-status"
                             aria-live="polite"
