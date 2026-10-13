@@ -275,6 +275,19 @@ h1 {
     margin: 0;
 }
 
+.panel-header > .project-attribution {
+    margin-bottom: 10px;
+    color: var(--muted);
+    font-size: 14px;
+    line-height: 1.5;
+}
+
+.project-attribution a {
+    color: inherit;
+    text-decoration: underline;
+    text-underline-offset: 2px;
+}
+
 .dev-mode-toggle {
     margin-top: 14px;
 }

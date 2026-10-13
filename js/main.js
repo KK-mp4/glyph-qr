@@ -808,27 +808,10 @@ function makeInitialHqr() {
         version: 1,
         level: "H",
         mask: 1,
-        message: "67",
+        message: elements.textQrMessage.defaultValue,
         type: "byte",
-        paddingBytes: [163, 60, 96, 108, 65],
     });
-    const textPixels = [
-        "000000000",
-        "001101110",
-        "010000010",
-        "011100100",
-        "010101000",
-        "011101000",
-        "000000000",
-    ];
-    const changes = textPixels.flatMap((line, rowOffset) =>
-        [...line].map((value, columnOffset) => ({
-            row: 11 + rowOffset,
-            column: 11 + columnOffset,
-            value: value === "1",
-        })),
-    );
-    return { model, edited: applyChanges(model.matrix, changes) };
+    return { model, edited: model.matrix };
 }
 
 document.querySelectorAll(".tool-button").forEach((button) => {
@@ -961,7 +944,6 @@ elements.textQrFont.value = urlState.fontId;
 elements.textQrAllowWrap.checked = urlState.allowWrap;
 if (urlState.content !== null) {
     elements.textQrMessage.value = urlState.content;
-    elements.textQrMessage.defaultValue = urlState.content;
 }
 elements.devModeToggle.checked = urlState.devMode;
 updateDevMode();
@@ -969,6 +951,4 @@ updateHighlightControls();
 const initialHqr = makeInitialHqr();
 installModel(initialHqr.model, initialHqr.edited);
 updateGenerationControls();
-if (urlState.content !== null) {
-    void generateTextQr();
-}
+void generateTextQr();
