@@ -591,6 +591,7 @@ export async function findOptimalTextQr({
       const [result, ...pendingResults] = uniqueResults;
       return {
         ...result,
+        displayText,
         fontId,
         allowWrap,
         continuation: {

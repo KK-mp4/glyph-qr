@@ -37,6 +37,7 @@ const elements = {
     legend: document.querySelector("#grid-legend"),
     devModeToggle: document.querySelector("#dev-mode-toggle"),
     textQrMessage: document.querySelector("#text-qr-message"),
+    textQrDisplayText: document.querySelector("#text-qr-display-text"),
     textQrFont: document.querySelector("#text-qr-font"),
     textQrBudget: document.querySelector("#text-qr-budget"),
     textQrBudgetOutput: document.querySelector("#text-qr-budget-output"),
@@ -117,6 +118,7 @@ function readUrlState() {
     const params = new URLSearchParams(window.location.search);
     return {
         content: params.has("c") ? params.get("c") : null,
+        displayText: params.get("text") ?? "",
         devMode: params.has("dev"),
         allowWrap: params.get("wrap") !== "0",
         fontId: FONTS.some((font) => font.id === params.get("font"))
@@ -129,10 +131,11 @@ function writeUrlState(
     content,
     fontId = elements.textQrFont.value,
     allowWrap = elements.textQrAllowWrap.checked,
+    displayText = elements.textQrDisplayText.value,
 ) {
     const query = `?c=${encodeURIComponent(content)}${
         fontId !== DEFAULT_FONT_ID ? `&font=${encodeURIComponent(fontId)}` : ""
-    }${allowWrap ? "" : "&wrap=0"}${
+    }${displayText ? `&text=${encodeURIComponent(displayText)}` : ""}${allowWrap ? "" : "&wrap=0"}${
         elements.devModeToggle.checked ? "&dev" : ""
     }`;
     window.history.replaceState(
@@ -161,6 +164,7 @@ function canEditQr() {
 function getGenerationSettings() {
     return {
         message: elements.textQrMessage.value,
+        displayText: elements.textQrDisplayText.value || elements.textQrMessage.value,
         fontId: elements.textQrFont.value,
         budgetRatio: Number(elements.textQrBudget.value) / 100,
         allowSplit: elements.textQrAllowSplit.checked,
@@ -247,6 +251,7 @@ async function displayGeneratedResult(result, { fullAnimation = false } = {}) {
         result.model.message,
         result.fontId ?? DEFAULT_FONT_ID,
         result.allowWrap ?? true,
+        result.displayText === result.model.message ? "" : result.displayText,
     );
     elements.grid.scrollIntoView({ behavior: "smooth" });
 }
@@ -859,6 +864,7 @@ elements.textQrMaxVersion.addEventListener("input", () => {
     updateGenerationControls();
 });
 elements.textQrMessage.addEventListener("input", updateGenerationControls);
+elements.textQrDisplayText.addEventListener("input", updateGenerationControls);
 elements.textQrFont.addEventListener("change", updateGenerationControls);
 elements.textQrAllowSplit.addEventListener("change", updateGenerationControls);
 elements.textQrAllowWrap.addEventListener("change", updateGenerationControls);
@@ -871,7 +877,7 @@ elements.devModeToggle.addEventListener("change", () => {
     const params = new URLSearchParams(window.location.search);
     if (params.has("c")) {
         const urlState = readUrlState();
-        writeUrlState(params.get("c"), urlState.fontId, urlState.allowWrap);
+        writeUrlState(params.get("c"), urlState.fontId, urlState.allowWrap, urlState.displayText);
     }
 });
 elements.generateTextQr.addEventListener("click", handleGenerateTextQr);
@@ -942,6 +948,7 @@ document.addEventListener("keydown", (event) => {
 const urlState = readUrlState();
 elements.textQrFont.value = urlState.fontId;
 elements.textQrAllowWrap.checked = urlState.allowWrap;
+elements.textQrDisplayText.value = urlState.displayText;
 if (urlState.content !== null) {
     elements.textQrMessage.value = urlState.content;
 }

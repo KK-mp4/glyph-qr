@@ -165,6 +165,17 @@
                             <textarea id="text-qr-message">GLYPH</textarea>
                         </label>
                         <label class="field">
+                            <span>Display text (optional)</span>
+                            <textarea
+                                id="text-qr-display-text"
+                                placeholder="Leave blank to display the encoded content"
+                                aria-describedby="text-qr-display-text-help"
+                            ></textarea>
+                            <small id="text-qr-display-text-help">
+                                Text drawn inside the QR code. Scanning still returns Content.
+                            </small>
+                        </label>
+                        <label class="field">
                             <span>Font</span>
                             <select id="text-qr-font"></select>
                         </label>

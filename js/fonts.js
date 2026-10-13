@@ -1,10 +1,10 @@
 import { renderTomThumbLine, validateTomThumbText } from "./tom-thumb-font.js";
 import { PIXIIE_FONTS } from "./pixiie-fonts.js";
 
-export const DEFAULT_FONT_ID = "tom-thumb";
+export const DEFAULT_FONT_ID = "pixiie-3x5";
 export const FONTS = [
     {
-        id: DEFAULT_FONT_ID,
+        id: "tom-thumb",
         label: "Tom Thumb (original)",
         advance: 4,
         renderLine: renderTomThumbLine,
